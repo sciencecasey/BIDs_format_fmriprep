@@ -48,15 +48,21 @@ for subj in 5019; do  #change this to the folder you want it to be
 	#Example filename: 5015_t1_mprage_sag_p3_iso_8
 	#BIDS filename: sub-5015_T1w
 	#Capture the number of anat files to change
-	anatfiles=$(ls -1 *mprage* | wc -l) #with one input per line, pipe mpgrage files into indv. lines
-	for ((i=1;i<=${anatfiles};i++)); do #for each individual line file named under mprage???? not sure what i++ is ??????????
+	anatfiles=$(ls -1 *mprage* | wc -l) #collect all the anat files and count the number of files with MPRAGE #this is a numerical variable
+	for ((i=1;i<=${anatfiles};i++)); do #every time loop through the function, add 1 to the i (second run through, i=2, etc; then only cont if 2 or more MPRAGE)
+ #(#initialization;condition;loop)
 		Anat=$(ls *mprage*) #This is to refresh the Anat variable, if this is not in the loop,
 		#each iteration a new "No such file or directory error", this is because the filename was changed.
-		tempanat=$(ls -1 $Anat | sed '1q;d') #Capture new file to change ##pipe one Anat line into stream editor,
+		#save the filenames in the Anat variables
+		tempanat=$(ls -1 $Anat | sed '1q;d') #grab the first filename within Anat variables
+		#grab entire filename
+		#Capture new file to change ##pipe one Anat line into stream editor,
 		#1=buffer the ouput line, q= branch to the end of the script and quit the sed function so doesn't keep reading and take awhile
 		#;= , d=delete the first line and start next cycle ????????????
-		tempanatext="${tempanat##*.}" ##what does ##*. mean?????????????
-		tempanatfile="${tempanat%.*}" ##what is %.*??????????
+		tempanatext="${tempanat##*.}" ##what does ##*. mean????????????? #grab the filename after the . sign
+		#copy the extension of the filename (cosiders the last .)
+		tempanatfile="${tempanat%.*}" ##what is %.*?????????? #grab before the . sign
+		#save the filename without the extension (cosiders the last .)
 		mv ${tempanatfile}.${tempanatext} sub-${subj}_T1w.${tempanatext} #rename the file
 		echo "${tempanat} changed to sub-${subj}_T1w.${tempanatext}" #echo what the script did
 	done
@@ -131,6 +137,7 @@ for subj in 5019; do  #change this to the folder you want it to be
 	###Convert dcm to nii
 	cd ${dcmdir}/${subj}
 	for direcs in VIS_MOD_1_* VIS_MOD_2_* VIS_MOD_3_* REST*; do
+		#grab the directories within each functional task folders
 		${dcm2niidir}/dcm2niix -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/${subj}/${direcs}
 	done
 
@@ -144,13 +151,19 @@ for subj in 5019; do  #change this to the folder you want it to be
 	#BIDS filename: sub-5015_task-VISMOD1Nat_bold
 	#Capture the number of files to change
 	vismodfiles=$(ls -1 *VIS_MOD* | wc -l)
+	#caputure the number of total vismod functional task files
 	for ((i=1;i<=${vismodfiles};i++)); do
 		vismod=$(ls *VIS_MOD*) #This is to refresh the vismod variable, same as the Anat case
 		tempvismod=$(ls -1 $vismod | sed '1q;d') #Capture new file to change
 		tempvismodext="${tempvismod##*.}"
 		tempvismodfile="${tempvismod%.*}"
 		taskname=$(echo $tempvismodfile | awk -F'[_]' '{print $2$3$4$5}')
-		mv ${tempvismodfile}.${tempvismodext} sub-${subj}_task-${taskname}_bold.${tempvismodext}
+		#natural viewing is always first but the second task is counterbalanced
+		#awk -F'[_]' '{print $2$3$4$5}'   #separate out by the underscores into 7 different fields
+		#only grab the 2-5 fields as the task names
+		mv --backup=numbered ${tempvismodfile}.${tempvismodext} sub-${subj}_task-${taskname}_bold.${tempvismodext}
+		#always backup so that you don't rewrite the filenames
+		#this makes a ~1~ if there are more than one
 		echo "${tempvismodfile}.${tempvismodext} changed to sub-${subj}_task-${taskname}_bold.${tempvismodext}"
 	done
 
@@ -158,11 +171,13 @@ for subj in 5019; do  #change this to the folder you want it to be
 	#Example filename: 5015_Rest_MB8_1_9
 	#BIDS filename: sub-5015_task-rest_bold
 	#Capture the number of files to change
+#some subjects have zero rest files, some have only 1 but it's the 7 min rest, others the 5 min rest, some subjects have both rests
 	restfiles=$(ls -1 *Rest* | wc -l)
 	for ((i=1;i<=${restfiles}/2;i++)); do
 		restnii=$(ls *Rest*nii*)
 		temprestnii=$(ls -1 $restnii | sed '1q;d')
-		tp=`fslnvols $temprestnii`
+		tp=`fslnvols $temprestnii` #this function captures the number of timepoints for the nii files with an FSL function
+#tp is a numerical vaiable with the number of volumes within that functional data (570 for 7 min, 406 for 5 min)
 		for ((j=1;j<=2;j++)); do
 			rest=$(ls *Rest*) #This is to refresh the rest variable, same as the Anat case
 			temprest=$(ls -1 $rest | sed '1q;d') #Capture new file to change
@@ -184,11 +199,11 @@ for subj in 5019; do  #change this to the folder you want it to be
 	done
 
 	#Handle duplicate files
-	if ls *~* 1> /dev/null 2>&1; then
+	if ls *~* 1> /dev/null 2>&1; then #look for ~ to indicate a file that has the backup rest because there is more than one rest of the same length
 		for file in *~*; do
 			dupfile="${file%.*}"
 			dupext="${file##*.}"
-			dupnum=$(echo $file | awk -F'[~]' '{print $2}')
+			dupnum=$(echo $file | awk -F'[~]' '{print $2}') #print the second field between the tildes (~1~ captures and prints 1)
 			mv $file ${file//.${dupext}/}
 			mv $dupfile ${dupfile//TP/TP${dupnum}}
 		done
