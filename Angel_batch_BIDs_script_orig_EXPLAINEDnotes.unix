@@ -3,7 +3,7 @@
 set -e  #to automatically exit out if the script command exits with a "non-zero" status
 
 ####Defining pathways
-toplvl=/home/angelw/Data/vismod_analysis/raw_mri_data/bids_structure  #set this directory to the top level folder you want to move things into 
+toplvl=/home/angelw/Data/vismod_analysis/raw_mri_data/bids_structure  #set this directory to the top level folder you want to move things into
 dcmdir=/home/angelw/Data/vismod_analysis/raw_mri_data/bids_structure/dicom/bdd		# For BDD subjects  #set this to dicom group 1 folder
 dcmdir=/home/angelw/Data/vismod_analysis/raw_mri_data/bids_structure/dicom/con		# For CON subjects #set this to dicom group 2 folder
 dcm2niidir=/home/angelw/mricrogl
@@ -15,12 +15,12 @@ niidir=${toplvl}/nifti/bdd		# For BDD subjects
 niidir=${toplvl}/nifti/con		# For CON subjects
 
 ###Create dataset_description.json
-jo -p "Name"="BDD Visual Modulation and Rest Dataset" "BIDSVersion"="1.0.2" >> ${niidir}/dataset_description.json 
+jo -p "Name"="BDD Visual Modulation and Rest Dataset" "BIDSVersion"="1.0.2" >> ${niidir}/dataset_description.json
 #adds a json file using the jo package and command from the file set in a separate folder "dataset_description"
 
 
-for subj in 5019; do  #change this to the folder you want it to be 
-	echo "Processing subject $subj" 
+for subj in 5019; do  #change this to the folder you want it to be
+	echo "Processing subject $subj"
 
 	####Anatomical Organization####
 	###Create structure
@@ -36,7 +36,7 @@ for subj in 5019; do  #change this to the folder you want it to be
 		#general format :: dcm2niix [options] <in_folder>
 		#${dcm2niidir}#go to the dcm directory folder where dcm2niix function is
 		#/dcm2niix -o # set the output directory as follows: ${niidir}/sub-${subj} #nifti folder created for the subject
-		# -f #name the file as filename:: ${subj}_%p#protocolused_%s#seriesused 
+		# -f #name the file as filename:: ${subj}_%p#protocolused_%s#seriesused
 		#${dcmdir}/${subj}/${direcs} #files within within the dicom subject folder, in the MPRAGE directories
 	done
 
@@ -49,25 +49,29 @@ for subj in 5019; do  #change this to the folder you want it to be
 	#BIDS filename: sub-5015_T1w
 	#Capture the number of anat files to change
 	anatfiles=$(ls -1 *mprage* | wc -l) #with one input per line, pipe mpgrage files into indv. lines
-	for ((i=1;i<=${anatfiles};i++)); do #for each individual line file named under mprage???? not sure what i++ is
-		Anat=$(ls *mprage*) #This is to refresh the Anat variable, if this is not in the loop, each iteration a new "No such file or directory error", this is because the filename was changed. 
-		tempanat=$(ls -1 $Anat | sed '1q;d') #Capture new file to change ##pipe one Anat line into stream editor, 
+	for ((i=1;i<=${anatfiles};i++)); do #for each individual line file named under mprage???? not sure what i++ is ??????????
+		Anat=$(ls *mprage*) #This is to refresh the Anat variable, if this is not in the loop,
+		#each iteration a new "No such file or directory error", this is because the filename was changed.
+		tempanat=$(ls -1 $Anat | sed '1q;d') #Capture new file to change ##pipe one Anat line into stream editor,
 		#1=buffer the ouput line, q= branch to the end of the script and quit the sed function so doesn't keep reading and take awhile
-		#;= , d=delete the first line and start next cycle
-		tempanatext="${tempanat##*.}"
-		tempanatfile="${tempanat%.*}"
-		mv ${tempanatfile}.${tempanatext} sub-${subj}_T1w.${tempanatext}
-		echo "${tempanat} changed to sub-${subj}_T1w.${tempanatext}"
+		#;= , d=delete the first line and start next cycle ????????????
+		tempanatext="${tempanat##*.}" ##what does ##*. mean?????????????
+		tempanatfile="${tempanat%.*}" ##what is %.*??????????
+		mv ${tempanatfile}.${tempanatext} sub-${subj}_T1w.${tempanatext} #rename the file
+		echo "${tempanat} changed to sub-${subj}_T1w.${tempanatext}" #echo what the script did
 	done
 
 	###Organize files into folders
-	for files in $(ls sub*); do 
+	for files in $(ls sub*); do
 		Orgfile="${files%.*}"
 		Orgext="${files##*.}"
 		Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev)
+		#reversethe order of characters in the file
+		#remove the delimiter separated by underscore (the -f1 says the remove the first field of the delimeter??? Is this in regards to the reverse order?)
+		#reverse the order again
 		if [ $Modality == "T1w" ]; then
 			mv ${Orgfile}.${Orgext} anat
-		fi 
+		fi
 	done
 
 	#Rename all *.gz to *.nii.gz
@@ -77,7 +81,7 @@ for subj in 5019; do  #change this to the folder you want it to be
 	done
 
 	####Diffusion Organization####
-	#Create subject folder 
+	#Create subject folder
 	mkdir -p ${niidir}/sub-${subj}/dwi
 
 	###Convert dcm to nii
@@ -96,16 +100,16 @@ for subj in 5019; do  #change this to the folder you want it to be
 	#difffiles will capture how many filenames to change
 	difffiles=$(ls -1 *DWI* | wc -l)
 	for ((i=1;i<=${difffiles};i++)); do
-		Diff=$(ls *DWI*) #This is to refresh the diff variable, same as the cases above. 
+		Diff=$(ls *DWI*) #This is to refresh the diff variable, same as the cases above.
 		tempdiff=$(ls -1 $Diff | sed '1q;d')
 		tempdiffext="${tempdiff##*.}"
 		tempdifffile="${tempdiff%.*}"
 		mv ${tempdifffile}.${tempdiffext} sub-${subj}_dwi.${tempdiffext}
 		echo "$tempdiff changed to sub-${subj}_dwi.${tempdiffext}"
 	done
-	
+
 	###Organize files into folders
-	for files in $(ls sub*); do 
+	for files in $(ls sub*); do
 		Orgfile="${files%.*}"
 		Orgext="${files##*.}"
 		Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev)
@@ -113,12 +117,12 @@ for subj in 5019; do  #change this to the folder you want it to be
 			mv ${Orgfile}.${Orgext} dwi
 		fi
 	done
-	
+
 	#Rename all *.gz to *.nii.gz
 	cd ${niidir}/sub-${subj}/dwi
 	for niifiles in *.gz; do
 		mv -- "$niifiles" "${niifiles%.gz}.nii.gz"
-	done	
+	done
 
 	####Functional Organization####
 	#Create subject folder
@@ -168,9 +172,9 @@ for subj in 5019; do  #change this to the folder you want it to be
 			echo "${temprestfile}.${temprestext} changed to sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}"
 		done
 	done
-	
+
 	###Organize files into folders
-	for files in $(ls sub*); do 
+	for files in $(ls sub*); do
 		Orgfile="${files%.*}"
 		Orgext="${files##*.}"
 		Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev)
@@ -178,7 +182,7 @@ for subj in 5019; do  #change this to the folder you want it to be
 			mv ${Orgfile}.${Orgext} func
 		fi
 	done
-	
+
 	#Handle duplicate files
 	if ls *~* 1> /dev/null 2>&1; then
 		for file in *~*; do
@@ -195,20 +199,20 @@ for subj in 5019; do  #change this to the folder you want it to be
 			mv $file ${file//TP/TP${newnum}}
 		done
 	fi
-	
+
 	#Rename all *.gz to *.nii.gz
 	cd ${niidir}/sub-${subj}/func
-	rename .gz .nii.gz *.gz*	
+	rename .gz .nii.gz *.gz*
 
 	###Check func json for required fields
 	#Required fields for func: 'RepetitionTime','VolumeTiming' or 'SliceTiming', and 'TaskName'
 	#capture all jsons to test
 	cd ${niidir}/sub-${subj}/func #Go into the func folder
-	for funcjson in $(ls *.json*); do 
+	for funcjson in $(ls *.json*); do
 
 		#Repeition Time exist?
 		repeatexist=$(cat ${funcjson} | jq '.RepetitionTime')
-		if [[ ${repeatexist} == "null" ]]; then   
+		if [[ ${repeatexist} == "null" ]]; then
 			echo "${funcjson} doesn't have RepetitionTime defined"
 		else
 			echo "${funcjson} has RepetitionTime defined"
@@ -246,7 +250,7 @@ for subj in 5019; do  #change this to the folder you want it to be
 			echo "TaskName was added to ${jsonname} and matches the tasklabel in the filename"
 		else
 			Taskquotevalue=$(jq '.TaskName' ${funcjson})
-			Taskvalue=$(echo $Taskquotevalue | cut -d '"' -f2)	
+			Taskvalue=$(echo $Taskquotevalue | cut -d '"' -f2)
 			jsonname="${funcjson%.*}"
 			taskfield=$(echo $jsonname | cut -d '_' -f2 | cut -d '-' -f2)
 			if [ $Taskvalue == $taskfield ]; then
