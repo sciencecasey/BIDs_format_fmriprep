@@ -1,4 +1,6 @@
 #!/bin/bash
+#local use
+#Angel 07.2019
 
 set -e 
 
