@@ -81,17 +81,21 @@ for subj in $subjects; do
 	#Create subject folder
 	mkdir -p ${niidir}/sub-${subj}/dwi
 
+  #not all subjects had DWI so use the nested "if" looped version below
+
+
+
+
 	###Convert dcm to nii
 	#Converting the two diffusion Dicom directories
-	cd ${dcmdir}/${subj}
-	for direcs in *DWI*; do
-		dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/TMS_VM_${subj}/dicom/${direcs}
-	done
+	#cd ${dcmdir}/${subj}
+	#for direcs in *DWI*; do
+		#dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/TMS_VM_${subj}/dicom/${direcs}
+	#done
 
 	#Changing directory into the subject folder
-	cd ${niidir}/sub-${subj}
+	#cd ${niidir}/sub-${subj}
 
-	#for DWI not all subjects had it so use the nested "if" looped version below
 	#change dwi
 	#Example filename: 5015_DWI_dir99_AP_7
 	#BIDS filename: sub-5015_dwi
@@ -120,19 +124,52 @@ for subj in $subjects; do
 	#	mv -- "$niifiles" "${niifiles%.gz}.nii.gz"
 	#done
 
-
-
-
-
+  #move to the dicom folder
+	cd ${dcmdir}/TMS_VM_${subj}/dicom
+	#if test -n "$(find . -maxdepth 1 -name '*DWI*' -print -quit)" #if there's a DWI
+	#then
+		for direcs in *DWI*; do
+			dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/TMS_VM_${subj}/dicom/${direcs} #convert the filenames
+			#Change directory into the nifti subject folder
+			cd ${niidir}/sub-${subj}
+			difffiles=$(ls -1 *DWI* | wc -l) #capture the number of filenames to change
+			for ((i=1;i<=${difffiles};i++)); do
+				Diff=$(ls *DWI*) #This is to refresh the diff variable, same as the cases above.
+				tempdiff=$(ls -1 $Diff | sed '1q;d') #grab the first file
+				tempdiffext="${tempdiff##*.}" #save its extension
+				tempdifffile="${tempdiff%.*}" #save it's filename
+				mv --backup=numbered ${tempdifffile}.${tempdiffext} sub-${subj}_dwi.${tempdiffext} #change the filenames
+				#Example filename: 5015_DWI_dir99_AP_7
+				#BIDS filename: sub-5015_dwi
+				echo "$tempdiff changed to sub-${subj}_dwi.${tempdiffext}"
+				###Organize files into Modality folders
+				for files in $(ls sub*); do
+					Orgfile="${files%.*}"
+					Orgext="${files##*.}"
+					Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev)
+					if [ $Modality == "dwi" ]; then
+						mv ${Orgfile}.${Orgext} dwi
+					fi
+					#Rename all *.gz to *.nii.gz
+					cd ${niidir}/sub-${subj}/dwi
+					for niifiles in *.gz; do
+						mv -- "$niifiles" "${niifiles%.gz}.nii.gz"
+					done
+				done
+			done
+		done
+	#else #if subject didn't complete a DWI
+  #  echo no DWI for sub $subj found
+	#fi
 
 	####Functional Organization####
 	#Create subject folder
 	mkdir -p ${niidir}/sub-${subj}/func
 
 	###Convert dcm to nii
-	cd ${dcmdir}/${subj}
-	for direcs in VIS_MOD_1_* VIS_MOD_2_* VIS_MOD_3_* REST*; do
-		dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/${subj}/${direcs}
+	cd ${dcmdir}/TMS_VM_${subj}/dicom
+	for direcs in VIS_MOD_1_* VIS_MOD_2_* VIS_MOD_3_* FAST* REST*; do
+		dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/TMS_VM_${subj}/dicom/${direcs}
 	done
 
 	#Changing directory into the subject folder
@@ -151,8 +188,23 @@ for subj in $subjects; do
 		tempvismodext="${tempvismod##*.}"
 		tempvismodfile="${tempvismod%.*}"
 		taskname=$(echo $tempvismodfile | awk -F'[_]' '{print $2$3$4$5}')
-		mv --backup=numbered ${tempvismodfile}.${tempvismodext} sub-${subj}_task-${taskname}_bold.${tempvismodext}
-		echo "${tempvismodfile}.${tempvismodext} changed to sub-${subj}_task-${taskname}_bold.${tempvismodext}"
+		mv --backup=numbered ${tempvismod} sub-${subj}_task-${taskname}_bold.${tempvismodext}
+		echo "${tempvismod} changed to sub-${subj}_task-${taskname}_bold.${tempvismodext}"
+	done
+
+	fastfiles=$(ls -1 *FAST* | wc -l)
+	for ((i=1;i<=${fastfiles};i++)); do
+		fast=$(ls *FAST*)
+		fast=$(ls *FAST*)
+		tempfast=$(ls -1 $fast | sed '1q;d')
+		tempfastfile="${tempfast%.*}"
+		tempfastext="${tempfast##*.}"
+		taskname=$(echo $tempfastfile | awk -F'[_]' '{print $2}')
+		mv -n ${tempfast} sub-${subj}_task-${taskname}_bold.${tempfastext} #change the filenames
+		#Example filename: 5015_DWI_dir99_AP_7
+		#BIDS filename: sub-5015_dwi
+		echo "$tempfast changed to sub-${subj}_task-${taskname}_bold.${tempfastext}"
+		###Organize files into folders
 	done
 
 	#Rest
@@ -184,9 +236,9 @@ for subj in $subjects; do
 		fi
 	done
 
-	#Handle duplicate rest files
-	if ls *rest*~* 1> /dev/null 2>&1; then
-		for file in *rest*~*; do
+	#Handle duplicate files
+	if ls *~* 1> /dev/null 2>&1; then
+		for file in *~*; do
 			dupfile="${file%.*}"
 			dupext="${file##*.}"
 			dupnum=$(echo $file | awk -F'[~]' '{print $2}')
@@ -203,8 +255,9 @@ for subj in $subjects; do
 
 	#Rename all *.gz to *.nii.gz
 	cd ${niidir}/sub-${subj}/func
-	rename .gz .nii.gz *.gz*
-
+	for niifiles in *.nii; do
+		mv -- "$niifiles" "${niifiles%.nii}.nii.gz"
+	done
 	###Check func json for required fields
 	#Required fields for func: 'RepetitionTime','VolumeTiming' or 'SliceTiming', and 'TaskName'
 	#capture all jsons to test

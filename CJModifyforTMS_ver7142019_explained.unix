@@ -56,7 +56,7 @@ done
 		tempanat=$(ls -1 $Anat | sed '1q;d') #grab the first filename within Anat variables
 		tempanatext="${tempanat##*.}" #grab the filename after the last . sign (extension)
 		tempanatfile="${tempanat%.*}" #grab the filename before the last . sign (without the extension)
-		mv --backup=numbered ${tempanatfile}.${tempanatext} sub-${subj}_T1w.${tempanatext} #rename the file
+		mv ${tempanatfile}.${tempanatext} sub-${subj}_T1w.${tempanatext} #rename the file
 		echo "${tempanat} changed to sub-${subj}_T1w.${tempanatext}" #echo what the script did
 	done
 
@@ -74,9 +74,10 @@ done
 	done
 
 	#Rename all *.gz to *.nii.gz
+	#edited to change the .nii to .nii.gz
 	cd ${niidir}/sub-${subj}/anat
-	for niifiles in *.gz; do
-		mv -- "$niifiles" "${niifiles%.gz}.nii.gz"
+	for i in *.nii; do
+		mv -- $i "${i%.*}.nii.gz"
 	done
 
 	####Diffusion Organization####
@@ -87,9 +88,9 @@ done
 	#Converting the two diffusion Dicom directories
 	#NOT ALL PARTICIPANTS HAD A DWI FOR THIS SCAN
 	cd ${dcmdir}/TMS_VM_${subj}/dicom
-	if test -n "$(find . -maxdepth 1 -name '*DWI*' -print -quit)"
-	then
-		for direcs in *; do
+	#if test -n "$(find . -maxdepth 1 -name '*DWI*' -print -quit)"
+	#then
+		for direcs in *DWI*; do
 			dcm2niix -b y -o ${niidir}/sub-${subj} -f ${subj}_%p_%s ${dcmdir}/TMS_VM_${subj}/dicom/${direcs} #convert the filenames
 			#Change directory into the subject folder
 			cd ${niidir}/sub-${subj}
@@ -119,9 +120,9 @@ done
 				done
 			done
 		done
-	else #if subject didn't complete a DWI
-    echo no DWI for sub $subj found
-	fi
+	#else #if subject didn't complete a DWI
+  #  echo no DWI for sub $subj found
+	#fi
 
 	####Functional Organization####
 	#Create subject folder
@@ -140,6 +141,7 @@ done
 	##Rename func files
 	#Break the func down into each task
 	#VIS_MOD task
+	#FAST task
 	#Example filename: 5015_VIS_MOD_1_Nat_tilt-12_5
 	#BIDS filename: sub-5015_task-VISMOD1Nat_bold
 	#Capture the number of files to change
@@ -148,44 +150,67 @@ done
 	for ((i=1;i<=${vismodfiles};i++)); do
 		vismod=$(ls *VIS_MOD*) #This is to refresh the vismod variable, same as the Anat case
 		vismod=$(ls *VIS_MOD*) #Capture new file to change
+		tempvismod=$(ls -1 $vismod | sed '1q;d')
 		tempvismodext="${tempvismod##*.}"
 		tempvismodfile="${tempvismod%.*}"
 		taskname=$(echo $tempvismodfile | awk -F'[_]' '{print $2$3$4$5}')
 		#natural viewing is always first but the second task is counterbalanced
 		#awk -F'[_]' '{print $2$3$4$5}'   #separate out by the underscores into 7 different fields
 		#only grab the 2-5 fields as the task names
-		mv --backup=numbered ${tempvismodfile}.${tempvismodext} sub-${subj}_task-${taskname}_bold.${tempvismodext}
+		mv -n ${tempvismod} sub-${subj}_task-${taskname}_bold.${tempvismodext}
 		#always backup so that you don't rewrite the filenames
 		#this makes a ~1~ if there are more than one
-		echo "${tempvismodfile}.${tempvismodext} changed to sub-${subj}_task-${taskname}_bold.${tempvismodext}"
+		echo "${tempvismod} changed to sub-${subj}_task-${taskname}_bold.${tempvismodext}"
 	done
+
+	fastfiles=$(ls -1 *FAST* | wc -l)
+	for ((i=1;i<=${fastfiles};i++)); do
+		fast=$(ls *FAST*)
+		fast=$(ls *FAST*)
+		tempfast=$(ls -1 $fast | sed '1q;d')
+		tempfastfile="${tempfast%.*}"
+		tempfastext="${tempfast##*.}"
+		taskname=$(echo $tempfastfile | awk -F'[_]' '{print $2}')
+		mv -n ${tempfast} sub-${subj}_task-${taskname}_bold.${tempfastext} #change the filenames
+		#Example filename: 5015_DWI_dir99_AP_7
+		#BIDS filename: sub-5015_dwi
+		echo "$tempfast changed to sub-${subj}_task-${taskname}_bold.${tempfastext}"
+		###Organize files into folders
+	done
+
 
 	#Rest
 	#Example filename: 5015_Rest_MB8_1_9
 	#BIDS filename: sub-5015_task-rest_bold
 	#Capture the number of files to change
+
 #some subjects have zero rest files, some have only 1 but it's the 7 min rest, others the 5 min rest, some subjects have both rests
-	restfiles=$(ls -1 *Rest* | wc -l)
-	for ((i=1;i<=${restfiles}/2;i++)); do
-		restnii=$(ls *Rest*nii*)
-		temprestnii=$(ls -1 $restnii | sed '1q;d')
-		tp=`fslnvols $temprestnii` #this function captures the number of timepoints for the nii files with an FSL function
+#this works
+#test -n "$(find . -maxdepth 1 -name '*rest*' -print -quit)" && echo "file found" || echo "file not found"
+#this works too
+#if  [test -n "$(find . -maxdepth 1 -name '*Rest*' -print -quit)" ==0] ; do
+		restfiles=$(ls -1 *Rest* | wc -l)
+		for ((i=1;i<=${restfiles}/2;i++)); do
+			restnii=$(ls *Rest*nii*)
+			temprestnii=$(ls -1 $restnii | sed '1q;d')
+			tp=`fslnvols $temprestnii` #this function captures the number of timepoints for the nii files with an FSL function
 #tp is a numerical vaiable with the number of volumes within that functional data (570 for 7 min, 406 for 5 min)
-		for ((j=1;j<=2;j++)); do
-			rest=$(ls *Rest*) #This is to refresh the rest variable, same as the Anat case
-			temprest=$(ls -1 $rest | sed '1q;d') #Capture new file to change
-			temprestext="${temprest##*.}"
-			temprestfile="${temprest%.*}"
-			mv --backup=numbered ${temprestfile}.${temprestext} sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}
-			echo "${temprestfile}.${temprestext} changed to sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}"
+			for ((j=1;j<=2;j++)); do
+				rest=$(ls *Rest*) #This is to refresh the rest variable, same as the Anat case
+				temprest=$(ls -1 $rest | sed '1q;d') #Capture new file to change
+				temprestext="${temprest##*.}"
+				temprestfile="${temprest%.*}"
+				mv -n ${temprestfile}.${temprestext} sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}
+				echo "${temprestfile}.${temprestext} changed to sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}"
+			done
 		done
-	done
+	#fi
 
 	###Organize files into folders
 	for files in $(ls sub*); do
-		Orgfile="${files%.*}"
-		Orgext="${files##*.}"
-		Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev)
+		Orgfile="${files%.*}" #filename without extension
+		Orgext="${files##*.}" #file extensions
+		Modality=$(echo $Orgfile | rev | cut -d '_' -f1 | rev) #reverse filename, separate by _, choose first field
 		if [ $Modality == "bold" ]; then
 			mv ${Orgfile}.${Orgext} func
 		fi
@@ -200,7 +225,7 @@ done
 			mv $file ${file//.${dupext}/}
 			mv $dupfile ${dupfile//TP/TP${dupnum}}
 		done
-		mv sub*TP* func
+		mv sub*TP* func #what is the TP here?
 		cd func
 		((newnum=$dupnum+1))
 		for file in *TP_*; do
@@ -210,7 +235,9 @@ done
 
 	#Rename all *.gz to *.nii.gz
 	cd ${niidir}/sub-${subj}/func
-	rename .gz .nii.gz *.gz*
+	for niifiles in *.nii; do
+		mv -- "$niifiles" "${niifiles%.nii}.nii.gz"
+	done
 
 	###Check func json for required fields
 	#Required fields for func: 'RepetitionTime','VolumeTiming' or 'SliceTiming', and 'TaskName'
