@@ -20,16 +20,17 @@ jo -p Name="GD Bodymorph Index" BIDSVersion="1.0.2" >> ${outputdir}/dataset_desc
 for subj in $subjects; do  #change this to the folder you want it to be
 	echo "Processing subject $subj"
 
-	
+
 	##Conversion
-	mkdir -p ${outputdir}/sub-${subj}/ses-${session}/anat 
+	mkdir -p ${outputdir}/sub-${subj}/ses-${session}/anat
+	cd $sourcedir
 	for direcs in {*mprage*,*MPRAGE*}; do
 		dcm2niix -b y -z y -o ${outputdir}/sub-${subj}/ses-${session} -f ${subj}_%p_%s ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*/${direcs}
 	done
-	
+
 	cd ${outputdir}/sub-${subj}/ses-${session}
-	
-	
+
+
 	anatfiles=$(ls -1 *MPRAGE* | wc -l)
 	for ((i=1;i<=${anatfiles};i++)); do
 		Anat=$(ls *MPRAGE*) #This is to refresh the Anat variable, if this is not in the loop, each iteration a new "No such file or directory error", this is because the filename was changed.
@@ -39,19 +40,17 @@ for subj in $subjects; do  #change this to the folder you want it to be
 		mv -n ${tempanatfile}.${tempanatext} sub-${subj}_ses-${session}_T1w.${tempanatext}
 		echo "${tempanat} changed to sub-${subj}_ses-${session}_T1w.${tempanatext}"
 	done
-	
+
 	#Rename all *.gz to *.nii.gz and move to correct folder
-	for i in sub-${subj}_*.gz; do
-		mv $i "${i%.*}.nii.gz"
-	done
+	for i in sub-${subj}_*.gz; do mv $i "${i%.*}.nii.gz"; done
 	for files in *T1w*; do mv $files anat; done
-	
+
 	####Functional Organization####
 	#Create subject folder
 	mkdir -p ${outputdir}/sub-${subj}/ses-${session}/func
 
 	###Convert dcm to nii
-	cd ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*
+	cd ${sourcedir}
 	for direcs in BODYMORPH_1* BODYMORPH_2* BODYMORPH_3* BODY_LOCALIZER* REST*; do
 		#grab the directories within each functional task folders
 		dcm2niix -b y -z y -o ${outputdir}/sub-${subj}/ses-${session}/ -f ${subj}_%p_%s ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*/${direcs}
@@ -68,59 +67,71 @@ for subj in $subjects; do  #change this to the folder you want it to be
 	#Capture the number of files to change
 	bmfiles=$(ls -1 *BODYMORPH* | wc -l)
 	#capture the number of total BM functional task files
-	for ((i=1;i<=${bmfiles};i++)); do
-		bm=$(ls *MORPH*)
+	for ((i=1;i<=${bmfiles}/2;i++)); do
+		bm=$(ls *MORPH*nii*)
 		tempbm=$(ls -1 $bm | sed '1q;d')
-		tempbmfile="${tempbm%.*}"
-		tempbmext="${tempbm##*.}"
+		#tempbmfile="${tempbm%.*}"
+		#tempbmext="${tempbm##*.}"
 		tp=`fslnvols $tempbm`
-		Tr=$(echo $tempbm | awk -F '[_]' '{print $5}')
-		num=$(echo $tempbmfile | rev | cut -d '_' -f1 | rev)
-			if [[ $num == *.nii ]]
-				then num=${num%.nii}
-			fi
-		taskname=$(echo $tempbmfile | awk -F'[_]' '{print $2}')
-		run=$(echo $tempbmfile | awk -F'[_]' '{print $3}')
+		#tp is a numerical vaiable with the number of volumes within
+		#the functional data (570 for 7 min, 406 for 5 min, etc)
+		for((j=1;j<=2;j++)); do
+			b=$(ls *MORPH*)
+			tempb=$(ls -1 $b | sed '1q;d')
+			tempbfile="${tempb%.*}"
+			tempbext="${tempb##*.}"
+			Tr=$(echo $tempb | awk -F '[_]' '{print $5}')
+			#num=$(echo $tempbfile | rev | cut -d '_' -f1 | rev) #I didn't know if this num was important but it's not
+			#if [[ $num == *.nii ]]
+			#	then num=${num%.nii}
+			#fi
+			taskname=$(echo $tempbfile | awk -F'[_]' '{print $2}')
+			run=$(echo $tempbfile | awk -F'[_]' '{print $3}')
 		#always backup so that you don't rewrite the filenames
 		#this makes a ~1~ if there are more than one
-		mv -n ${tempbm} sub-${subj}_ses-${session}_task-bodymorph_run-${run}_acq-TP${tp}_ce-${Tr}_dir-${num}_bold.${tempbmext}
-		echo "${tempbm} changed to sub-${subj}_ses-${session}_task-bodymorph_run-${run}_acq-TP${tp}_ce-${Tr}_dir-${num}_bold.${tempbmext}"
+			mv -n ${tempb} sub-${subj}_ses-${session}_task-bodymorph_run-${run}_acq-TP${tp}-${Tr}_bold.${tempbext}
+			echo "${tempb} changed to sub-${subj}_ses-${session}_task-bodymorph_run-${run}_acq-TP${tp}-${Tr}_bold.${tempbext}"
+		done
 	done
 	blfiles=$(ls -1 *BODY_LOCALIZE* | wc -l)
 	#capture the number of total BL functional task files
-	for ((i=1;i<=${blfiles};i++)); do
-		bl=$(ls *LOCAL*)
+	for ((i=1;i<=${blfiles}/2;i++)); do
+		bl=$(ls *LOCAL*nii*)
 		tempbl=$(ls -1 $bl | sed '1q;d')
-		tempblfile="${tempbl%.*}"
-		tempblext="${tempbl##*.}"
+		#tempblfile="${tempbl%.*}"
+		#tempblext="${tempbl##*.}"
 		tp=`fslnvols $tempbl`
-		Tr=$(echo $tempbl | awk -F '[_]' '{print $5}')
-		num=$(echo $tempblfile | rev | cut -d '_' -f1 | rev)
-			if [[ $num == *.nii ]]
-				then num=${num%.nii}
-			fi
-		taskname=$(echo $tempblfile | awk -F'[_]' '{print $2$3}')
+		for ((j=1;j<=2;j++)); do
+			b=$(ls *LOCAL*)
+			tempb=$(ls -1 $b | sed '1q;d')
+			tempbfile="${tempb%.*}"
+			tempbext="${tempb##*.}"
+			Tr=$(echo $tempb | awk -F '[_]' '{print $5}')
+			taskname=$(echo $tempbfile | awk -F'[_]' '{print $2$3}')
 		#always backup so that you don't rewrite the filenames
 		#this makes a ~1~ if there are more than one
-		mv -n ${tempbl} sub-${subj}_ses-${session}_task-localizer_acq-TP${tp}-${Tr}_dir-${num}_bold.${tempblext}
-		echo "${tempbl} changed to sub-${subj}_ses-${session}_task-localizer_acq-TP${tp}-${Tr}_dir-${num}_bold.${tempblext}"
+			mv -n ${tempb} sub-${subj}_ses-${session}_task-localizer_acq-TP${tp}-${Tr}_bold.${tempbext}
+			echo "${tempb} changed to sub-${subj}_ses-${session}_task-localizer_acq-TP${tp}-${Tr}_bold.${tempbext}"
+		done
 	done
 	restfiles=$(ls *REST* | wc -l)
-	for ((i=1;i<=${restfiles};i++)); do
-		rest=$(ls *REST*)
+	for ((i=1;i<=${restfiles}/2;i++)); do
+		rest=$(ls *REST*nii*)
 		temprest=$(ls -1 $rest | sed '1q;d')
-		temprestfile="${temprest%.*}"
-		temprestext="${temprest##*.}"
+		#temprestfile="${temprest%.*}"
+		#temprestext="${temprest##*.}"
 		tp=`fslnvols $temprest`
-		Tr=$(echo $temprest | awk -F '[_]' '{print $6}')
-		num=$(echo $temprestfile | rev | cut -d '_' -f1 | rev)
-			if [[ $num == *.nii ]]
-				then num=${num%.nii}
-			fi
-		mv -n $temprest sub-${subj}_ses-${session}_task-rest_acq-TP${tp}-${Tr}_dir-${num}_rest.${temprestext}
-		echo "$temprest changed to sub-${subj}_ses-${session}_task-rest_acq-TP${tp}-${Tr}_dir-${num}_rest.${temprestext}"
+			for ((j=1;j<=2;j++)); do
+				r=$(ls *REST*)
+				tempr=$(ls -1 $r | sed '1q;d')
+				temprfile="${tempr%.*}"
+				temprext="${tempr##*.}"
+				Tr=$(echo $tempr | awk -F '[_]' '{print $6}')
+				mv -n $tempr sub-${subj}_ses-${session}_task-rest_acq-TP${tp}-${Tr}_bold.${temprext}
+				echo "$tempr changed to sub-${subj}_ses-${session}_task-rest_acq-TP${tp}-${Tr}_bold.${temprext}"
+			done
 	done
-	
+
 	#Rename all *.gz to *.nii.gz and move to correct folder
 	for i in sub-${subj}_*.gz; do
 		mv $i "${i%.*}.nii.gz"
@@ -132,81 +143,73 @@ for subj in $subjects; do  #change this to the folder you want it to be
 	mkdir -p ${outputdir}/sub-${subj}/ses-${session}/dwi
 
 	###Convert DWI dcm to nii
-	cd ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*
+	cd ${sourcedir}
 	for direcs in {*DWI*,*DTI*}; do
 		dcm2niix -b y -z y -o ${outputdir}/sub-${subj}/ses-${session}/ -f ${subj}_%p_%s ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*/${direcs}
 	done
 
+	#Changing directory into the subject folder
+	cd ${outputdir}/sub-${subj}/ses-${session}
+
+	#Rename
 	dwifiles=$(ls -1 *DWI* | wc -l)
-	for ((i=1;i<="${dwifiles}";i++)); do
-		dwi=$(ls *DWI*)
-		tempdwi=$(ls -1 *DWI* | sed '1q;d')
-		tempdwifile="${tempdwi%.*}"
-		tempdwiext="${tempdwi##*.}"
+	for ((i=1;i<="${dwifiles}"/2;i++)); do
+		dwi=$(ls *DWI*.nii*)
+		tempdwi=$(ls -1 $dwi | sed '1q;d')
 		tp=`fslnvols $tempdwi`
-		tempdir=$(echo $tempdwi | awk -F '_' '{print $3$4}')
-		dir="${tempdir##dir}"
-		mv -n $tempdwi sub-${subj}_ses-${session}_acq-TP${tp}-auto-7B5_dir-${dir}_dwi.${tempdwiext}
-		echo "changed $tempdwi to sub-${subj}_ses-${session}_acq-TP${tp}-auto-7B5_dir-${dir}_dwi.${tempdwiext}"
+		#tempdwifile="${tempdwi%.*}"
+		#tempdwiext="${tempdwi##*.}"
+		for ((j=1;j<=${dwifiles};j++)); do
+			d=$(ls *DWI*)
+			tempd=$(ls -1 $d | sed '1q;d')
+			tempdfile=${tempd%.*}
+			tempdext=${tempd##*.}
+			tempdir=$(echo $tempd | awk -F '_' '{print $3$4}')
+			dir="${tempdir##dir}"
+			mv -n $tempd sub-${subj}_ses-${session}_acq-TP${tp}-auto-7B5_dir-${dir}_dwi.${tempdext}
+			echo "changed $tempd to sub-${subj}_ses-${session}_acq-TP${tp}-auto-7B5_dir-${dir}_dwi.${tempdext}"
+		done
 	done
 	dtifiles=$(ls -1 *DTI* | wc -l)
-	for ((i=1;i<="${dtifiles}";i++)); do
-		dti=$(ls *DTI*)
-		tempdti=$(ls -1 *DTI* | sed '1q;d')
-		tempdtifile="${tempdti%.*}"
-		tempdtiext="${tempdti##*.}"
+	for ((i=1;i<="${dtifiles}"/4;i++)); do
+	#we need to use 4 as dti files have 4 files associated with them:
+	#.bvec, .bval, .nii.gz, and .json
+		dti=$(ls *DTI*nii*)
+		tempdti=$(ls -1 $dti | sed '1q;d')
+		#tempdtifile="${tempdti%.*}"
+		#tempdtiext="${tempdti##*.}"
 		tp=`fslnvols $tempdti`
-		tempdir=$(echo $tempdti | awk -F '_' '{print $3$4}')
-		dir=$(echo $tempdir | awk -F 'dir' '{print $1$2}')
-		b=$(echo $tempdti | awk -F '_' '{print $5$6}')
-		mv -n $tempdti sub-${subj}_ses-${session}_acq-TP${tp}-${b}-dti_dir-${dir}_dwi.${tempdtiext}
-		echo "changed $tempdti to sub-${subj}_ses-${session}_acq-TP${tp}-${b}-dti_dir-${dir}_dwi.${tempdtiext}"
+		for ((j=1;j<=4;j++)); do #this 4 matches the $dtifiles/4 above
+			d=$(ls *DTI*)
+			tempd=$(ls -1 $d | sed '1q;d')
+			tempdfile=${tempd%.*}
+			tempdext=${tempd##*.}
+			tempdir=$(echo $tempd | awk -F '_' '{print $3$4}')
+			dir=$(echo $tempdir | awk -F 'dir' '{print $1$2}')
+			b=$(echo $tempd | awk -F '_' '{print $5$6}')
+			mv -n $tempd sub-${subj}_ses-${session}_acq-TP${tp}-${b}_dir-${dir}_dwi.${tempdext}
+			echo "changed $tempd to sub-${subj}_ses-${session}_acq-TP${tp}-${b}_dir-${dir}_dwi.${tempdext}"
+		done
 	done
-		
+
 	#Rename all *.gz to *.nii.gz and move to correct folder
 	for i in sub-${subj}_*.gz; do
 		mv $i "${i%.*}.nii.gz"
 	done
 	for files in *_dwi*; do mv $files dwi; done
 
-	#Handle duplicate files
-	for file in *TP0*; do
-		dupfile="${file%.*}"
-		dupext="${file##*.}"
-		mv $file ${file//.${dupext}/}
-		mv $dupfile ${dupfile//TP0*/TP0-duplicate.${dupext}}
-	done
 
-	
-	
-	
-	#test -n "$(find . -maxdepth 1 -name '*rest*' -print -quit)" && echo "file found" || echo "file not found"
-#this works too
-#if  [test -n "$(find . -maxdepth 1 -name '*Rest*' -print -quit)" ==0] ; do
-		#restfiles=$(ls -1 *Rest* | wc -l)
-		#for ((i=1;i<=${restfiles}/2;i++)); do
-		#	restnii=$(ls *Rest*nii*)
-		#	temprestnii=$(ls -1 $restnii | sed '1q;d')
-		#	tp=`fslnvols $temprestnii` #this function captures the number of timepoints for the nii files with an FSL function
-#tp is a numerical vaiable with the number of volumes within that functional data (570 for 7 min, 406 for 5 min)
-		#	for ((j=1;j<=2;j++)); do
-		#		rest=$(ls *Rest*) #This is to refresh the rest variable, same as the Anat case
-		#		temprest=$(ls -1 $rest | sed '1q;d') #Capture new file to change
-		#		temprestext="${temprest##*.}"
-		#		temprestfile="${temprest%.*}"
-		#		mv -n ${temprestfile}.${temprestext} sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}
-		#		echo "${temprestfile}.${temprestext} changed to sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}"
-		#	done
-		#done
-	#fi
-	
-	
-	
-	#Rename all *.gz to *.nii.gz
-	cd ${niidir}/sub-${subj}/func
-	for niifiles in *.gz; do
-		mv $niifiles ${niifiles%.*}.nii.gz
-	done
+
+
+
+	#Handle duplicate files
+	#for file in *~*; do
+	#	dupfile="${file%.*}"
+	#	dupext="${file##*.}"
+	#	mv $file ${file//.${dupext}/}
+	#	mv $dupfile ${dupfile//~*/~-duplicate.${dupext}}
+	#done
+
 
 	###Check func json for required fields
 	#Required fields for func: 'RepetitionTime','VolumeTiming' or 'SliceTiming', and 'TaskName'
