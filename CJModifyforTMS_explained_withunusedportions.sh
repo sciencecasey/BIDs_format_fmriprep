@@ -12,7 +12,6 @@ niidir=${toplvl}/BIDsniix/BDD
 softwaredir=/usr/local/Cellar
 subject=10001
 #session=
-#DOcompress=y #y or n compress dicoms after finishing
 
 ###Create dataset_description.json
 jo -p Name="BDD TMS Visual Modulation Datasets" BIDSVersion="1.0.2" >> ${niidir}/dataset_description.json
@@ -110,13 +109,26 @@ for subj in $subject; do  #change this to the folder you want it to be
 			tempvismod=$(ls -1 $vismod | sed '1q;d') #Capture new file to change
 			tempvismodext="${tempvismod##*.}"
 			tempvismodfile="${tempvismod%.*}"
-			taskname1=$(echo $tempvismodfile | awk -F'[_]' '{print $5}')
+			taskname=$(echo $tempvismodfile | awk -F'[_]' '{print $5}')
 			if [[ $taskname1 == "VM" ]]; then
 				taskname=attentionmod
 			else
 				taskname=naturalview
 			fi
 			procorder=$(echo $tempvismodfile | awk -F'[_]' '{print $4}')
+		#natural viewing is always first but the second task is counterbalanced
+		#awk -F'[_]' '{print $2$3$4$5}'   #separate out by the underscores into 7 different fields
+		#only grab the 2-5 fields as the task names
+		#if [ $procorder == 1 ] && [[ $taskname = "Nat" ]];
+  			#then mv -n ${tempvismod2} sub-${subj}_task-${procorder}${taskname}_run-1_bold.${tempvismodext};
+   			#echo "${tempvismod2} sub-${subj}_task-${procorder}${taskname}_run-1_bold.${tempvismodext}";
+   		#elif [ $procorder != 1 ] && [[ $taskname = "Nat" ]];
+   			#then mv -n ${tempvismod2} sub-${subj}_task-${procorder}${taskname}_run-2_bold.${tempvismodext};
+   			#echo "${tempvismod2} sub-${subj}_task-${procorder}${taskname}_run-2_bold.${tempvismodext}";
+   		#elif [[ "$taskname" = "VM" ]] ;
+   			#then mv -n ${tempvismod2} sub-${subj}_task-${procorder}${taskname}_bold.${tempvismodext};
+   			#echo "${tempvismod2} sub-${subj}_task-${procorder}${taskname}_bold.${tempvismodext}";
+		 #fi
 		mv -n ${tempvismod} sub-${subj}_task-${taskname}_acq-order${procorder}_bold.${tempvismodext}
 		#always backup so that you don't rewrite the filenames
 		#this makes a ~1~ if there are more than one
@@ -134,10 +146,33 @@ for subj in $subject; do  #change this to the folder you want it to be
 			else
 				runnumber=2
 			fi
-			mv -n $natfile ${natfile/bold/run-${runnumber}_bold}
-			echo "$natfile changed to  ${natfile/bold/run-${runnumber}_bold}"
+			mv -n $natfile ${natfile/Nat/Nat_run-$runnumber}
+			echo "$natfile changed to  ${natfile/Nat/Nat_run-$runnumber}"
 		done
 	done
+
+
+	#shopt -s extglob
+	#ls !(*run*)
+	#add run number for natural viewing
+	#naturalfiles=$(ls -1 *Nat_* | awk '$0!~/run/{print $0}'| wc -l)
+	#list all files containing Nat_ in individual lines
+	#from that list ($0) print any items not containing (!~) the string "run" (/run/) print the list now
+	#wc -l : count the line items [this integer is saved as the variable "naturalfiles"
+		#for ((i=1;i<=${naturalfiles}/2;i++)); do
+			#natural=$(ls *Nat_*)
+			#tempnatural=$(ls -1 $natural | sed '1q;d')
+			#echo "file is $tempnatural"
+			#procorder=$(echo $tempnatural | sed 's/[^0-9]//g' | awk -F''$subj'' '{print $2}')
+			#echo "order is $procorder"
+			#if [ $procorder = 1 ]
+			#	then mv -n $tempnatural ${tempnatural/Nat/Nat_run-1}
+			#	echo "$tempnatural changed to ${tempnatural/1Nat_/1Nat_run-1}"
+			#elif [ $procorder != 1 ]
+			#	then mv -n $tempnatural ${tempnatural/Nat/Nat_run-2}
+			#	echo "$tempnatural ${tempnatural/1Nat_/1Nat_run-2}"
+			#fi
+		#done
 
 	fastfiles=$(ls -1 *FAST* | wc -l)
 	for ((i=1;i<=${fastfiles}/2;i++)); do
@@ -154,6 +189,34 @@ for subj in $subject; do  #change this to the folder you want it to be
 			echo "$tempfast changed to sub-${subj}_task-fastface_acq-order4_bold.${tempfastext}"
 		done
 	done
+
+
+	#Rest
+	#Example filename: 5015_Rest_MB8_1_9
+	#BIDS filename: sub-5015_task-rest_bold
+	#Capture the number of files to change
+
+#some subjects have zero rest files, some have only 1 but it's the 7 min rest, others the 5 min rest, some subjects have both rests
+#this works
+#test -n "$(find . -maxdepth 1 -name '*rest*' -print -quit)" && echo "file found" || echo "file not found"
+#this works too
+#if  [test -n "$(find . -maxdepth 1 -name '*Rest*' -print -quit)" ==0] ; do
+		#restfiles=$(ls -1 *Rest* | wc -l)
+		#for ((i=1;i<=${restfiles}/2;i++)); do
+		#	restnii=$(ls *Rest*nii*)
+		#	temprestnii=$(ls -1 $restnii | sed '1q;d')
+		#	tp=`fslnvols $temprestnii` #this function captures the number of timepoints for the nii files with an FSL function
+#tp is a numerical vaiable with the number of volumes within that functional data (570 for 7 min, 406 for 5 min)
+		#	for ((j=1;j<=2;j++)); do
+		#		rest=$(ls *Rest*) #This is to refresh the rest variable, same as the Anat case
+		#		temprest=$(ls -1 $rest | sed '1q;d') #Capture new file to change
+		#		temprestext="${temprest##*.}"
+		#		temprestfile="${temprest%.*}"
+		#		mv -n ${temprestfile}.${temprestext} sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}
+		#		echo "${temprestfile}.${temprestext} changed to sub-${subj}_task-rest_acq-${tp}TP_bold.${temprestext}"
+		#	done
+		#done
+	#fi
 
 	###Organize files into folders
 	for files in $(ls sub*); do
@@ -190,6 +253,7 @@ for subj in $subject; do  #change this to the folder you want it to be
 	###Check func json for required fields
 	#Required fields for func: 'RepetitionTime','VolumeTiming' or 'SliceTiming', and 'TaskName'
 	#capture all jsons to test
+	cd ${niidir}/sub-${subj}/func #Go into the func folder
 	for funcjson in $(ls *.json*); do
 
 		#Repeition Time exist?
@@ -245,8 +309,8 @@ for subj in $subject; do  #change this to the folder you want it to be
 	done
 done
 
-#echo -n "Do you want to compress the dicom files after conversion (y/n)? "
-#read DOcompress
+echo -n "Do you want to compress the dicom files after conversion (y/n)? "
+read DOcompress
 
 ###Do compression of the dicom data
 	if [ $DOcompress == "y" ]; then
