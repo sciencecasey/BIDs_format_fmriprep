@@ -297,12 +297,50 @@ for subj in $subjects; do  #change this to the folder you want it to be
 	for files in *_dwi*; do mv $files dwi; done
 
 	#Handle duplicate files
-	#for file in *~*; do
-	#	dupfile="${file%.*}"
-	#	dupext="${file##*.}"
-	#	mv $file ${file//.${dupext}/}
-	#	mv $dupfile ${dupfile//~*/~-duplicate.${dupext}}
-	#done
+	for file in *~*; do
+		dupfile="${file%.*}"
+		dupext="${file##*.}"
+		mv $file ${file//.${dupext}/}
+		mv $dupfile ${dupfile//~*/~-duplicate.${dupext}}
+	done
+
+	####FMAP Organization####
+	#Create subject folder
+	mkdir -p ${outputdir}/sub-${subj}/ses-${session}/fmap
+
+	###Convert dcm to nii
+	cd ${sourcedir}
+	for direcs in *fmap*; do
+		#grab the directories within each functional task folders
+		dcm2niix -b y -z y -o ${outputdir}/sub-${subj}/ses-${session}/ -f ${subj}_%p_%s ${sourcedir}/*_${subj}_S${session}/dicom/Prisma*/201*****/FEU*/${direcs}
+	done
+
+	#rename files
+	cd ${outputdir}/sub-${subj}/ses-${session}
+	fmapfiles=$(ls -1 *gre_fmap* | wc -l)
+	for ((i=1;i<="${fmapfiles}";i++)); do
+		fmap=$(ls *fmap*)
+		tempfmap=$(ls -1 $fmap | sed '1q;d')
+		tempfmapfile="${tempfmap%.*}"
+		tempfmapext="${tempfmap##*.}"
+		mv -n $tempfmap sub-${subj}_ses-${session}_fieldmap.${tempfmapext}
+		echo "changed $tempfmap to sub-${subj}_ses-${session}_fieldmap.${tempfmapext}"
+	done
+
+	#Rename all *.gz to *.nii.gz and move to correct folder
+	for i in sub-${subj}_*.gz; do mv $i "${i%.*}.nii.gz"; done
+	for files in *fieldmap*; do mv $files fmap; done
+
+	#Handle duplicate files
+	for file in *~*; do
+		dupfile="${file%.*}"
+		dupext="${file##*.}"
+		mv $file ${file//.${dupext}/}
+		mv $dupfile ${dupfile//~*/~-duplicate.${dupext}}
+	done
+
+	#Changing directory into the subject folder
+	cd ${outputdir}/sub-${subj}/ses-${session}
 
 echo -n "Do you want to compress the dicom files after conversion (y/n)? "
 read DOcompress
